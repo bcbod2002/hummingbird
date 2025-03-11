@@ -49,7 +49,10 @@ struct HTTP2StreamChannel: ServerChildChannel {
                 try channel.pipeline.syncOperations.addHandler(IdleStateHandler(readTimeout: idleTimeout))
             }
             try channel.pipeline.syncOperations.addHandler(HTTPUserEventHandler(logger: logger))
-            return try HTTP1Channel.Value(wrappingChannelSynchronously: channel)
+            return try HTTP1Channel.Value(
+                wrappingChannelSynchronously: channel,
+                configuration: .init(isOutboundHalfClosureEnabled: true)
+            )
         }
     }
 
@@ -77,6 +80,9 @@ struct HTTP2StreamChannel: ServerChildChannel {
                     )
                     let responseWriter = ResponseWriter(outbound: outbound)
                     try await self.responder(request, responseWriter, asyncChannel.channel)
+                    // close outbound and wait for close future
+                    outbound.finish()
+                    try await asyncChannel.channel.closeFuture.get()
                 }
             } onCancel: {
                 asyncChannel.channel.close(mode: .input, promise: nil)

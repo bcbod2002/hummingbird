@@ -58,6 +58,9 @@ extension HTTPChannelHandler {
                             throw error
                         }
                         if request.headers[.connection] == "close" {
+                            // close outbound and wait for close future
+                            outbound.finish()
+                            try await asyncChannel.channel.closeFuture.get()
                             return
                         }
 
